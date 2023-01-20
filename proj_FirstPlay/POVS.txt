@@ -1,0 +1,170 @@
+#include <iostream>
+#include<math.h>
+#include <vector>
+#include <utility>
+#include <algorithm>
+#include <chrono>
+#include<windows.h> //to get the console
+using namespace std;
+
+int nScreenWidth = 120;
+int nScreenHeight = 40 ;
+float fPlayerX = 0.0f;
+float FplayerY = 0.0f;
+float FplayerA = 0.0f;
+
+int nMapHeight =16;
+int nMapWidth = 16;
+
+float fFOV = 3.1459/4.0;  //"POTTERS ALGO" --> for Narrow view /ray spectrum(45 deg)
+float fDepth =  16.0f; //to check if we hit a wall
+int main(){
+
+// Creating a ScreenBuffer
+wchar_t *screen = new wchar_t[nScreenWidth*nScreenHeight];
+/*
+A Handle can be useful for saving states (among others). If u have data in a structure like an std::vector. 
+Your object may be at different memory locations at different times during execution of a program, which means your pointer to that memory will change values.
+With a handle it never changes, it always references your object. Imagine saving a state of a program (like in a game) - you wouldn't save out a pointer location to data and later import the data again and try to get that address in memory.
+You can however save out a Handle with your data, and import the data and handle. 
+*/
+HANDLE hConsole = CreateConsoleScreenBuffer(GENERIC_READ | GENERIC_WRITE,0,NULL,CONSOLE_TEXTMODE_BUFFER,NULL);
+SetConsoleActiveScreenBuffer(hConsole);
+DWORD dwBytesWritten= 0;
+wstring map;
+map += L"################";
+map += L"#..............#";
+map += L"#..............#";
+map += L"#..............#";
+map += L"#..............#";
+map += L"#..............#";
+map += L"#..............#";
+map += L"#..............#";
+map += L"#..............#";
+map += L"#..............#";
+map += L"#..............#";
+map += L"#..............#";
+map += L"#..............#";
+map += L"#..............#";
+map += L"#..............#";
+map += L"################";
+
+
+
+//Game Loop  beacuse the game runs over and over again but if user exits i.e presses zero then loop ends
+while(1){
+  // We'll need time differential per frame to calculate modification
+		// to movement speeds, to ensure consistant movement, as ray-tracing
+		// is non-deterministic
+		tp2 = chrono::system_clock::now();
+		chrono::duration<float> elapsedTime = tp2 - tp1;
+		tp1 = tp2;
+		float fElapsedTime = elapsedTime.count();
+    // Handle CCW Rotation
+		if (GetAsyncKeyState((unsigned short)'A') & 0x8000)
+			fPlayerA -= (fSpeed * 0.75f) * fElapsedTime;
+
+		// Handle CW Rotation
+		if (GetAsyncKeyState((unsigned short)'D') & 0x8000)
+			fPlayerA += (fSpeed * 0.75f) * fElapsedTime;
+		
+		// Handle Forwards movement & collision
+		if (GetAsyncKeyState((unsigned short)'W') & 0x8000)
+		{
+			fPlayerX += sinf(fPlayerA) * fSpeed * fElapsedTime;;
+			fPlayerY += cosf(fPlayerA) * fSpeed * fElapsedTime;;
+			if (map.c_str()[(int)fPlayerX * nMapWidth + (int)fPlayerY] == '#')
+			{
+				fPlayerX -= sinf(fPlayerA) * fSpeed * fElapsedTime;;
+				fPlayerY -= cosf(fPlayerA) * fSpeed * fElapsedTime;;
+			}			
+		}
+
+		// Handle backwards movement & collision
+		if (GetAsyncKeyState((unsigned short)'S') & 0x8000)
+		{
+			fPlayerX -= sinf(fPlayerA) * fSpeed * fElapsedTime;;
+			fPlayerY -= cosf(fPlayerA) * fSpeed * fElapsedTime;;
+			if (map.c_str()[(int)fPlayerX * nMapWidth + (int)fPlayerY] == '#')
+			{
+				fPlayerX += sinf(fPlayerA) * fSpeed * fElapsedTime;;
+				fPlayerY += cosf(fPlayerA) * fSpeed * fElapsedTime;;
+			}
+		}
+
+for(int x =0;x<nScreenWidth;x++){
+  // for each column the projected ray angle into world space
+    float fRayAngle = (FplayerA-fFOV/2.0f) + ((float)x/(float)nScreenWidth)*fFOV;
+                 //3.14/4 half view of player angle + chopping that parts in to bits  
+                  // Find distance to wall
+			float fStepSize = 0.1f;	  // Increment size for ray casting, decrease to increase	
+           float fDistanceToWall = 0.0f;//              resolution
+           bool bHitWall =false;// Set when ray hits wall block
+           bool bBoundary = false;		// Set when ray hits boundary between two wall blocks
+      float fEyeX =  sinf(fRayAngle); //to get unit vector 
+      float fEyeY  = cosf(fRayAngle);
+      
+			// Incrementally cast ray from player, along ray angle, testing for 
+			// intersection with a block
+           while(!bHitWall && fDistanceToWall < fDepth){
+              fDistanceToWall+=  fStepSize;
+              int nTestX = (int)(fPlayerX+fEyeX)*fDistanceToWall;// A line for unit vector for distance  from player to wall
+              int nTestY = (int)(FplayerY+ fEyeY*fDistanceToWall);
+            // Test if ray is out of bounds
+            if(nTestX<0 || nTestX>=nMapWidth||nTestY<0|| nTestY>=nMapHeight)
+            {
+              bHitWall = true; //set to max depth
+              fDistanceToWall = fDepth;
+            }
+            else{
+              // Ray is inbounds so test to see if the ray cell is a wall block
+              // converting from 2D to 1D
+              if(map.c_str()[nTestX * nMapWidth + nTestY] == '#'){
+                bHitWall = true; //HIT THE WALL
+                // To highlight tile boundaries, cast a ray from each corner
+						// of the tile, to the player. The more coincident this ray
+						// is to the rendering ray, the closer we are to a tile 
+						// boundary, which we'll shade to add detail to the walls
+						vector<pair<float, float>> p;
+
+						// Test each corner of hit tile, storing the distance from
+						// the player, and the calculated dot product of the two rays
+						for (int tx = 0; tx < 2; tx++)
+							for (int ty = 0; ty < 2; ty++)
+							{
+								// Angle of corner to eye
+								float vy = (float)nTestY + ty - fPlayerY;
+								float vx = (float)nTestX + tx - fPlayerX;
+								float d = sqrt(vx*vx + vy*vy); 
+								float dot = (fEyeX * vx / d) + (fEyeY * vy / d);
+								p.push_back(make_pair(d, dot));
+							}
+
+						// Sort Pairs from closest to farthest
+						sort(p.begin(), p.end(), [](const pair<float, float> &left, const pair<float, float> &right) {return left.first < right.first; });
+						
+						// First two/three are closest (we will never see all four)
+						float fBound = 0.01;
+						if (acos(p.at(0).second) < fBound) bBoundary = true;
+						if (acos(p.at(1).second) < fBound) bBoundary = true;
+						if (acos(p.at(2).second) < fBound) bBoundary = true;
+              }
+            }
+                                                        }      
+
+                                }
+
+
+//Calculate distance to ceiling and floor
+int nCieling = (float)(nScreenHeight/2.0)-nScreenHeight/((float)fDistanceToWall);
+int nFloor = nScreenHeight- nCieling;
+
+}
+// KAHA TAK DISPLAY KAREGA SCREEN"NOT CROSSING THE BOUNDARY OR ELSE GARBAGE VALUE STORE"
+screen [nScreenWidth * nScreenHeight-1]= '\0';
+//COORDINATES FORM WHERE TO WRITE
+WriteConsoleOutputCharacterW(hConsole,screen,nScreenWidth * nScreenHeight, { 0,0 }, &dwBytesWritten);
+}
+
+  return 0;
+}
