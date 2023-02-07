@@ -1,5 +1,5 @@
 ### First_Player_View
- A Game made in c++ using Windows library and ASCII
+ A Game made in c++ using Windows library and ASCI
 
  # CONTROLS
 
